@@ -1,0 +1,194 @@
+<context>
+# Overview
+This document outlines the product requirements for the **MCP Icon Integration Server**. The problem this server solves is the tendency for Large Language Models (LLMs) to "hallucinate" non-existent icons or suggest incorrect/inefficient methods for integrating icons into developer projects. Current LLMs lack a reliable, structured way to access and utilize comprehensive icon libraries like Iconify.
+
+This MCP Server is for:
+*   **Primary Consumers:** AI Language Models (LLMs) such as Claude and AI Agents like Cursor, which conform to the Model Context Protocol.
+*   **Indirect Beneficiaries:** Software developers who use these LLMs/Agents for coding assistance.
+
+The value of the MCP Icon Integration Server is to:
+1.  Provide LLMs with a **verified and definitive source of icon data** from the extensive Iconify ecosystem.
+2.  Expose icon functionalities (search, data retrieval, snippet generation) through **clearly defined MCP functions**, preventing LLM hallucination of icons or their properties.
+3.  Enable LLMs to offer developers **standardized, best-practice code snippets** for various icon integration methods (e.g., `unplugin-icons`, raw SVG, `<iconify-icon>` web component).
+4.  Ultimately, streamline the developer workflow for icon integration when assisted by an LLM, ensuring accuracy and efficiency.
+
+The server will act as an intelligent intermediary, abstracting the complexities of the Iconify dataset and API, and presenting them to LLMs in a structured, MCP-compliant manner.
+
+# Core Features
+*(These features represent the functions the MCP Server will expose to LLMs according to the Model Context Protocol.)*
+
+1.  **`search_icons` (MCP Function)**
+    *   **What it does:** Allows the LLM to search for icons based on keywords, optionally filtering by specific Iconify collections and limiting the number of results.
+    *   **Why it's important:** Provides LLMs with a reliable way to discover available icons based on developer requests, directly querying the Iconify dataset. This is the first step to preventing hallucination.
+    *   **How it works at a high level:**
+        *   The LLM invokes the `search_icons` function on the MCP Server with parameters like `query: "user profile"`, `collections: ["mdi", "feather"]` (optional), `limit: 5` (optional).
+        *   The MCP Server queries its local Iconify dataset (derived from `@iconify/json`).
+        *   The server returns a structured list of matching icons, including their full name (e.g., `mdi:account`), collection name, and a small SVG preview string.
+        *   **MCP Signature (Illustrative):**
+            `function search_icons(query: string, collections?: string[], limit?: number) -> { results: { name: string, collection_id: string, collection_name: string, preview_svg: string }[] }`
+
+2.  **`get_icon_integration_details` (MCP Function)**
+    *   **What it does:** Retrieves detailed information and integration snippets for a specific, fully qualified icon name (e.g., `mdi:account`). It can provide snippets tailored to different JavaScript frameworks or general HTML usage.
+    *   **Why it's important:** Equips the LLM with all necessary data and code to help a developer integrate a chosen icon correctly and efficiently using various methods.
+    *   **How it works at a high level:**
+        *   The LLM invokes `get_icon_integration_details` with `icon_full_name: "mdi:home"` and optionally `target_framework: "react"` or `preferred_method: "svg"`.
+        *   The MCP Server fetches the icon's data (SVG body, dimensions) from its local Iconify dataset.
+        *   It generates various integration snippets:
+            *   Raw SVG.
+            *   `<iconify-icon>` web component tag.
+            *   `unplugin-icons` component import/usage for specified frameworks (React, Vue, Svelte etc.).
+        *   It also provides brief setup guidance for methods requiring it (e.g., `unplugin-icons` installation, `<iconify-icon>` script include).
+        *   The server returns a structured object containing the icon's metadata, the generated snippets, and setup guides.
+        *   **MCP Signature (Illustrative):**
+            `function get_icon_integration_details(icon_full_name: string, target_framework?: string, preferred_method?: "unplugin" | "svg" | "iconify-icon") -> { name: string, collection_id: string, svg_data: string, width: number, height: number, snippets: { unplugin_icons?: { [framework: string]: string }, svg: string, iconify_icon_tag: string }, setup_guides: { unplugin_icons?: string, iconify_icon_script?: string } }`
+
+3.  **`list_icon_collections` (MCP Function)**
+    *   **What it does:** Provides the LLM with a list of all available Iconify icon collections known to the server, including their IDs, names, and total icon counts.
+    *   **Why it's important:** Allows the LLM to inform developers about available icon sets or to offer more refined search options if a developer has a preferred style or library.
+    *   **How it works at a high level:**
+        *   The LLM invokes the `list_icon_collections` function.
+        *   The MCP Server reads from its local Iconify dataset metadata.
+        *   The server returns a list of collection information.
+        *   **MCP Signature (Illustrative):**
+            `function list_icon_collections() -> { collections: { id: string, name: string, author: string, license: string, total_icons: number }[] }`
+
+# User Experience
+*(This section describes the interaction flow, primarily between the LLM and the MCP Server, and then how the LLM translates that to assist the end-developer.)*
+
+*   **User Personas:**
+    *   **LLM/AI Agent (e.g., Claude, Cursor):** The direct "user" of the MCP Server. Needs clear, structured function calls and responses to perform its tasks.
+    *   **Priya (Developer):** A frontend developer using an LLM for assistance. She wants quick, accurate icon integration.
+    *   **Chris (Web Designer):** Uses an LLM for simpler HTML/CSS tasks. Needs straightforward ways to embed icons.
+
+*   **Key User Flows (LLM interacting with MCP Server):**
+    1.  **Developer Request for an Icon:** Priya asks her LLM: "Add a search icon to my React button."
+    2.  **LLM Uses `search_icons`:**
+        *   The LLM determines relevant keywords ("search") and decides to use the MCP Icon Server.
+        *   LLM calls: `MCP_Icon_Server.search_icons(query: "search", limit: 3)`.
+        *   MCP Server returns: `[{ name: "mdi:magnify", ... }, { name: "feather:search", ... }]`.
+    3.  **LLM Clarifies with Developer (if needed):** LLM tells Priya: "I found these icons: 1. `mdi:magnify`, 2. `feather:search`. Which one?" Priya picks "mdi:magnify".
+    4.  **LLM Uses `get_icon_integration_details`:**
+        *   LLM calls: `MCP_Icon_Server.get_icon_integration_details(icon_full_name: "mdi:magnify", target_framework: "react")`.
+        *   MCP Server returns a rich object with SVG data, dimensions, React snippets for `unplugin-icons`, raw SVG, `<iconify-icon>` tag, and associated setup guides.
+    5.  **LLM Provides Code/Guidance to Developer:**
+        *   The LLM formats the relevant React snippet and `unplugin-icons` setup guide from the MCP Server's response and presents it to Priya.
+        *   Example for Chris (HTML context for `mdi:twitter`): LLM might call `get_icon_integration_details(icon_full_name: "mdi:twitter", preferred_method: "svg")` and then provide the raw SVG and `<iconify-icon>` options.
+
+*   **UI/UX Considerations (for the MCP Server's API design from LLM's perspective):**
+    *   **Discoverability:** MCP function names and parameter descriptions must be clear and self-explanatory for the LLM.
+    *   **Predictability:** Consistent request and response structures.
+    *   **Atomicity:** Functions should perform well-defined tasks.
+    *   **Error Handling:** Clear and structured error responses if a function call fails or parameters are invalid.
+    *   **Completeness:** Responses should provide all data the LLM needs to assist the developer without further complex logic on the LLM's side for icon data itself.
+
+</context>
+<PRD>
+# Technical Architecture
+*   **System Components:**
+    *   **MCP Icon Integration Server:** A standalone web server application.
+        *   **API Layer:** Implements HTTP endpoints that conform to the Model Context Protocol. It receives function calls from LLMs, validates them, and routes them to the service layer.
+        *   **Service Layer:** Contains the core logic for each exposed MCP function (searching icons, fetching details, generating snippets).
+        *   **Data Access Layer:** Interacts with the local Iconify dataset.
+    *   **Iconify Dataset (Local):** The server will maintain a local copy of the Iconify icon sets, likely by utilizing the `@iconify/json` package or a derivative. This ensures fast lookups and reduces external dependencies for core operations. A mechanism to regularly update this local dataset will be required.
+
+*   **Data Models (Internal to Server, exposed via MCP responses):**
+    *   The server will parse and store Iconify JSON data.
+    *   It will have internal models for icons, collections, snippets, and setup guides, which are then serialized into the MCP function response structures (as illustrated in Core Features).
+
+*   **APIs and Integrations:**
+    *   **LLM <-> MCP Server:** Communication via HTTPS, adhering to the Model Context Protocol. This likely involves the LLM sending a JSON request specifying the function name and arguments, and the server returning a JSON response.
+    *   **MCP Server -> Iconify Ecosystem (for updates):** The server will need a mechanism to periodically fetch updates to the `@iconify/json` data or use a tool that manages this. It does *not* call the live Iconify API for each LLM request to ensure speed and reduce external runtime dependencies.
+
+*   **Infrastructure Requirements:**
+    *   Standard web server hosting environment (e.g., Docker container on a cloud platform like AWS, Google Cloud, Azure, or a PaaS).
+    *   Sufficient disk space for the local Iconify dataset (approx. 120-150MB for `@iconify/json`, potentially more if pre-rendered data is stored).
+    *   A process for deploying updates to the server application and the icon dataset.
+    *   Standard logging and monitoring for a web service.
+
+# Development Roadmap
+*   **MVP Requirements (MCP Server Functionality):**
+    1.  **Server Setup:** Basic web server (e.g., FastAPI in Python, Express.js in Node.js) capable of handling MCP-style JSON requests.
+    2.  **Local Iconify Data Integration:** Integrate `@iconify/json` as the local data source. Ability to load and query this data.
+    3.  **MCP Function: `search_icons`**
+        *   Implement keyword-based search across icon names in the local dataset.
+        *   Return results in the defined `IconSearchResult` structure.
+    4.  **MCP Function: `get_icon_integration_details` (Partial)**
+        *   Retrieve icon SVG data and basic metadata (width, height) for a given full icon name.
+        *   Generate raw SVG snippet.
+        *   Generate `<iconify-icon>` tag snippet.
+        *   Generate `unplugin-icons` snippet for *one* primary JavaScript framework (e.g., React).
+    5.  **Basic Setup Guides:** Include simple text guidance for using the `<iconify-icon>` script and a very basic `unplugin-icons` setup for the chosen MVP framework.
+    6.  **MCP-Compliant Error Handling:** Implement basic error responses for invalid requests or icons not found.
+
+*   **Future Enhancements:**
+    1.  **`get_icon_integration_details` Expansion:**
+        *   Add `unplugin-icons` snippet generation for more frameworks (Vue, Svelte, Solid, Astro, Qwik).
+        *   Provide more detailed and context-aware setup guides for `unplugin-icons` (e.g., Vite vs. Webpack config).
+        *   Add ability to request specific dimensions or colors for SVG snippets (if feasible through Iconify data or simple transformations).
+    2.  **MCP Function: `list_icon_collections` Implementation:** Fully implement this function.
+    3.  **Advanced Search Capabilities:** Support filtering by collection in `search_icons`. Implement better relevance ranking for search results.
+    4.  **Icon Data Update Mechanism:** Implement an automated or semi-automated process for refreshing the local `@iconify/json` dataset.
+    5.  **Snippet Customization:** Allow LLMs to request variations in snippets (e.g., specific attributes on SVG, different import styles).
+    6.  **Performance Optimization:** For large datasets and frequent requests.
+    7.  **Enhanced Documentation for LLM Consumers:** Detailed specifications of MCP functions, parameters, and expected behavior.
+
+# Logical Dependency Chain
+*(Order for developing the MCP Server's capabilities)*
+
+1.  **Foundation - Server & Data Access:**
+    *   Set up the basic web server framework capable of MCP-style communication (request parsing, response formatting).
+    *   Integrate the local Iconify dataset (`@iconify/json`) and build functions to query icon names and basic metadata.
+    *   Implement core error handling.
+2.  **Core Usability - MVP Functions (Visible via LLM):**
+    *   Implement `search_icons` (keyword search, basic result structure).
+    *   Implement `get_icon_integration_details` (MVP version):
+        *   Fetch full icon SVG data.
+        *   Generate raw SVG snippet.
+        *   Generate `<iconify-icon>` snippet + basic script guide.
+        *   Generate `unplugin-icons` snippet for one framework + basic setup guide.
+    *   This provides end-to-end functionality for the most common use cases.
+3.  **Expansion - Broadening Snippet & Framework Support:**
+    *   Add more framework support to `get_icon_integration_details` for `unplugin-icons`.
+    *   Refine setup guides for `unplugin-icons` for different build tools.
+4.  **Completeness & Polish - Additional Functions & Features:**
+    *   Implement `list_icon_collections`.
+    *   Implement advanced search filtering for `search_icons`.
+    *   Develop the icon data update mechanism.
+    *   Enhance snippet customization options.
+5.  **Optimization & Maintenance:**
+    *   Performance tuning.
+    *   Refine documentation and error handling based on usage.
+
+# Risks and Mitigations
+*   **Technical Challenges:**
+    *   **MCP Standard Interpretation/Evolution:** The Model Context Protocol might evolve or have ambiguities.
+        *   **Mitigation:** Closely follow any official MCP documentation and examples. Design the server with some adaptability in its API layer. Engage with the MCP community if one exists.
+    *   **Complexity of Managing Local Iconify Dataset:** Keeping `@iconify/json` (or similar) up-to-date and efficiently queried.
+        *   **Mitigation:** Design a clear update strategy from the start (e.g., a cron job that pulls the latest npm package and reloads data). Choose appropriate data structures for efficient querying.
+    *   **Generating Correct and Varied Code Snippets:** Ensuring snippets are accurate for many frameworks and build tools.
+        *   **Mitigation:** Start with a limited set of popular frameworks. Use well-tested templates for snippet generation. Rely on official documentation for `unplugin-icons` and framework-specific conventions. Allow for iterative additions and testing.
+*   **Figuring out the MVP that we can build upon:**
+    *   Defining an MVP that is too broad or too narrow.
+        *   **Mitigation:** The MVP focuses on core search and providing the most versatile snippet types (SVG, web component) plus one major JS framework (`unplugin-icons`). This ensures immediate utility for a significant range of LLM interactions.
+*   **Resource Constraints (Development Time):**
+    *   Building a robust server with all desired features can be time-consuming.
+        *   **Mitigation:** Phased development as outlined in the roadmap. Prioritize MVP features that deliver the most value in preventing LLM hallucination and aiding developers.
+*   **Dependency on Iconify Ecosystem:** Changes to Iconify's data format (though `@iconify/json` is fairly stable) or licensing.
+    *   **Mitigation:** `@iconify/json` is a widely used package, making breaking changes less likely but not impossible. Monitor Iconify project updates. Ensure clarity on licensing for the datasets being served.
+
+# Appendix
+*   **Model Context Protocol Reference:** [https://modelcontextprotocol.io/llms-full.txt](https://modelcontextprotocol.io/llms-full.txt) (and any other official MCP documentation)
+*   **Iconify Project:** [https://iconify.design/](https://iconify.design/)
+*   **`@iconify/json` package:** [https://www.npmjs.com/package/@iconify/json](https://www.npmjs.com/package/@iconify/json)
+*   **`unplugin-icons`:** [https://github.com/unplugin/unplugin-icons](https://github.com/unplugin/unplugin-icons)
+*   **Illustrative MCP Function Signatures (Detailed - to be refined during design):**
+    *   **`search_icons`:**
+        *   `parameters: { query: string, collections?: string[], limit?: integer (default: 10) }`
+        *   `returns: { results: Array<{ name: string (e.g., "mdi:home"), collection_id: string, collection_name: string, preview_svg: string (inline SVG string) }> }`
+    *   **`get_icon_integration_details`:**
+        *   `parameters: { icon_full_name: string (e.g., "mdi:home"), target_framework?: string (e.g., "react", "vue", "svelte"), preferred_method?: "unplugin" | "svg" | "iconify-icon" }`
+        *   `returns: { name: string, collection_id: string, collection_name: string, svg_data: string (full SVG markup), width: number, height: number, snippets: { unplugin_icons?: { [framework: string]: { import_statement: string, usage_component: string } }, svg: string, iconify_icon_tag: string }, setup_guides: { unplugin_icons?: string (markdown), iconify_icon_script?: string (html script tag) } }`
+    *   **`list_icon_collections`:**
+        *   `parameters: {}`
+        *   `returns: { collections: Array<{ id: string, name: string, author: string, license: string, total_icons: number, website?: string, category?: string }> }`
+</PRD>
