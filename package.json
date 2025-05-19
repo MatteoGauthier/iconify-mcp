@@ -2,11 +2,9 @@
   "name": "iconify-mcp",
   "version": "1.0.0",
   "description": "",
-  "main": "src/index.ts",
+  "main": "build/index.js",
   "type": "module",
-  "bin": {
-    "iconify-mcp": "./build/index.js"
-  },
+  "bin": "build/index.js",
   "scripts": {
     "build": "bun bun src/index.ts --outdir=build --target=node",
     "start": "bun run src/index.ts"
