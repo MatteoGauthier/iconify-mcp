@@ -32,23 +32,18 @@ git clone https://github.com/yourusername/iconify-mcp
 cd iconify-mcp
 
 # Install dependencies
-npm install
+bun install
 
 # Build the project
-npm run build
+bun run build
 ```
 
 ### Usage with Claude Desktop
 
-1. Start the server:
-   ```bash
-   npm start
-   ```
+1. Configure Claude Desktop to use the server:
 
-2. Configure Claude Desktop to use the server:
-   
    Open your Claude Desktop configuration file:
-   
+
    **macOS/Linux**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
    **Windows**: `%AppData%\Claude\claude_desktop_config.json`
 
@@ -56,21 +51,17 @@ npm run build
 
    ```json
    {
-       "mcpServers": {
-           "iconify": {
-               "command": "npm",
-               "args": [
-                   "start",
-                   "--prefix",
-                   "/path/to/iconify-mcp"
-               ]
-           }
+     "mcpServers": {
+       "iconify": {
+         "command": "node",
+         "args": ["path/to/iconify-mcp/build/index.js"]
        }
+     }
    }
    ```
 
-3. Restart Claude Desktop
-4. Ask Claude to find icons or generate implementation code
+2. Restart Claude Desktop
+3. Ask Claude to find icons or generate implementation code
 
 ### Example queries
 
@@ -83,31 +74,6 @@ Here are some things you can ask Claude while connected to this server:
 - "Generate unplugin-icons configuration for Vite with Vue 3"
 - "How do I create custom icon collections with unplugin-icons?"
 
-## Using unplugin-icons
-
-[unplugin-icons](https://github.com/unplugin/unplugin-icons) is a powerful plugin that provides icon components for various build tools and frameworks. This MCP server offers enhanced support for unplugin-icons:
-
-### Key features
-
-- 🔌 **Universal support** - Works with Vite, Webpack, Rollup, and esbuild
-- 🧩 **Auto-imports** - Use icons without manual imports
-- 🎨 **Customization** - Modify icons via query parameters or global options
-- 📦 **Custom collections** - Create and use your own icon sets
-
-### Getting unplugin-icons configuration
-
-Ask Claude queries like:
-- "Generate unplugin-icons config for Vite and React"
-- "How do I set up unplugin-icons with custom collections?"
-- "Show me how to customize icon sizes in unplugin-icons"
-
-## Development
-
-```bash
-# Run in development mode with auto-reload
-npm run dev
-```
-
 ## License
 
 MIT
@@ -115,6 +81,7 @@ MIT
 ## Acknowledgements
 
 This project is built with:
+
 - [Iconify API](https://iconify.design/)
 - [unplugin-icons](https://github.com/unplugin/unplugin-icons)
-- [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) 
+- [Model Context Protocol (MCP)](https://modelcontextprotocol.io/)
