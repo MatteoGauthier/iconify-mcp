@@ -8,6 +8,7 @@
     "iconify-mcp": "./build/index.js"
   },
   "scripts": {
+    "build": "bun bun src/index.ts --outdir=build --target=node",
     "start": "bun run src/index.ts"
   },
   "keywords": [],

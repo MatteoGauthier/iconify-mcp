@@ -1,35 +1,48 @@
-// index.ts
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { ICONIFY_API_BASE, USER_AGENT } from "./lib/constants.js"
 import { FrameworkEnum } from "./lib/schemas.js"
 import { getIconSnippet, getSetupGuidance } from "./lib/utils.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
+
 const server = new McpServer({
   name: "IconifyIntegration",
   version: "1.0.0",
 })
 
+// Updated icon-sets resource
 server.resource("icon-sets", "iconify://collections", async (uri) => {
   try {
     const response = await fetch(`${ICONIFY_API_BASE}/collections`, { headers: { "User-Agent": USER_AGENT } })
-    if (!response.ok) throw new Error(`Iconify API error (${response.status}): ${response.statusText}`)
-    const collections = (await response.json()) as Record<string, { name: string }> // Type assertion
-    const collectionInfo = Object.entries(collections)
-      .map(([id, details]) => `- ${id} (${details.name})`)
-      .join("\n")
+    if (!response.ok) {
+      throw new Error(`Iconify API error (${response.status}): ${response.statusText}`)
+    }
+    const collections = (await response.json()) as Record<string, { name: string; category: string; tags: string[] }>
+    server.server.sendLoggingMessage({
+      level: "debug",
+      data: collections,
+    })
+    const resourceContents = Object.entries(collections).map(([id, collectionDetails]) => {
+      return {
+        uri: `iconify://collection/${id}`,
+        text: `${collectionDetails.name} (ID: ${id}, Category: ${collectionDetails.category}, Tags: ${collectionDetails.tags})`,
+      }
+    })
 
+    return {
+      contents: resourceContents,
+    }
+  } catch (error: any) {
+    console.error("Error in icon-sets resource:", error)
     return {
       contents: [
         {
           uri: uri.href,
-          text: `Available Icon Sets:\n${collectionInfo}`,
+          text: `Error fetching icon sets: ${error.message}`,
+          mimeType: "text/plain",
         },
       ],
     }
-  } catch (error: any) {
-    console.error("Error in icon-sets resource:", error)
-    return { contents: [{ uri: uri.href, text: `Error fetching icon sets: ${error.message}` }] }
   }
 })
 
@@ -41,8 +54,9 @@ server.resource(
       const response = await fetch(`${ICONIFY_API_BASE}/collection?prefix=${setId}`, {
         headers: { "User-Agent": USER_AGENT },
       })
-      if (!response.ok)
+      if (!response.ok) {
         throw new Error(`Iconify API error (${response.status}) for set ${setId}: ${response.statusText}`)
+      }
       const data = await response.json()
       return {
         contents: [
@@ -55,7 +69,9 @@ server.resource(
       }
     } catch (error: any) {
       console.error(`Error in icon-set-details resource for ${setId}:`, error)
-      return { contents: [{ uri: uri.href, text: `Error fetching set ${setId}: ${error.message}` }] }
+      return {
+        contents: [{ uri: uri.href, text: `Error fetching set ${setId}: ${error.message}`, mimeType: "text/plain" }],
+      }
     }
   }
 )
@@ -86,15 +102,23 @@ server.resource(
       }
     } catch (error: any) {
       console.error(`Error in icon-svg resource for ${setId}:${iconName}:`, error)
-      return { contents: [{ uri: uri.href, text: `Error fetching SVG for ${setId}:${iconName}: ${error.message}` }] }
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            text: `Error fetching SVG for ${setId}:${iconName}: ${error.message}`,
+            mimeType: "text/plain",
+          },
+        ],
+      }
     }
   }
 )
 
 server.resource("usage-guidance", "iconify://usage-guide", async (uri) => {
   const frameworkDetails = FrameworkEnum.options
-    .map((framework) => {
-      const setup = getSetupGuidance(framework as z.infer<typeof FrameworkEnum>)
+    .map(async (framework) => {
+      const setup = await getSetupGuidance(framework as z.infer<typeof FrameworkEnum>)
       let frameworkName = framework.charAt(0).toUpperCase() + framework.slice(1)
       if (framework === "raw-svg") frameworkName = "Raw SVG"
       if (framework === "unplugin-icons") frameworkName = "unplugin-icons"
@@ -169,6 +193,13 @@ For more general information, visit https://iconify.design/docs/
   }
 })
 
+server.tool("get-collection", "Retrieves a list of all available icon sets on Iconify.", async () => {
+  const response = await fetch(`${ICONIFY_API_BASE}/collections`, { headers: { "User-Agent": USER_AGENT } })
+  if (!response.ok) throw new Error(`Iconify API error (${response.status}): ${response.statusText}`)
+  const collections = (await response.json()) as Record<string, { name: string }>
+  return { content: [{ type: "text", text: JSON.stringify(collections, null, 2) }] }
+})
+
 server.tool(
   "search-icons",
   "Searches for icons on Iconify and returns a list of matching icons. Can optionally provide integration snippets.",
@@ -194,17 +225,13 @@ server.tool(
       const response = await fetch(searchUrl, { headers: { "User-Agent": USER_AGENT } })
       if (!response.ok) throw new Error(`Iconify API search error (${response.status}): ${response.statusText}`)
 
-      // Define a more specific type for Iconify search results
       interface IconifySearchResult {
         icons: string[]
         total: number
         limit: number
         start: number
         collections: Record<string, { name: string }>
-        // Iconify API sometimes uses 'aliases' or 'prefixes' depending on context
-        // For /search, it seems to return full names in 'icons' if prefix isn't specified,
-        // or prefixed names if prefix is specified. Let's adapt.
-        prefixes?: Record<string, string> // Used if names are like prefix:icon
+        prefixes?: Record<string, string>
       }
       const searchResults = (await response.json()) as IconifySearchResult
 
@@ -215,7 +242,6 @@ server.tool(
       let outputText = `Found ${searchResults.icons.length} of ${searchResults.total} matching icons:\n`
 
       for (const iconFullName of searchResults.icons) {
-        // Iconify search directly returns full names like "mdi:home"
         outputText += `- ${iconFullName}\n`
 
         if (framework) {
@@ -239,7 +265,6 @@ server.tool(
         outputText += `\nSetup Guidance for ${framework}:\n${getSetupGuidance(framework)}\n`
       }
 
-      // Add a note about API caching
       outputText += `\nNote: Iconify API caches icon data in the browser for performance. Subsequent uses of the same icons will be faster.\n`
 
       return { content: [{ type: "text", text: outputText }] }
