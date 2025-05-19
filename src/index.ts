@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { ICONIFY_API_BASE, USER_AGENT } from "./lib/constants.js"
