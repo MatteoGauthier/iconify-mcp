@@ -22,21 +22,81 @@ This MCP server provides:
 - 📐 **Layout shift prevention** - CSS snippets to avoid UI jumps
 - ⚙️ **Framework-specific configurations** - Including enhanced unplugin-icons support
 
+## Available Tools
+
+The Iconify MCP server provides the following tools:
+
+- `get-collection`: Retrieves a list of all available icon sets on Iconify.
+  - *Parameters*: None
+  - *Example output*:
+    ```json
+    {
+      "material-symbols": {
+        "name": "Material Symbols",
+        "total": 14217,
+        "author": { "name": "Google" },
+        "license": { "title": "Apache 2.0", "spdx": "Apache-2.0" },
+        "samples": ["downloading", "privacy-tip", ...],
+        "height": 24,
+        "category": "Material"
+      },
+      ...
+    }
+    ```
+
+- `search-icons`: Searches for icons matching your query and returns integration snippets for various frameworks (React, Vue, Svelte, etc.).
+  - *Parameters*:
+    - `query` (string, required): The search term for icons
+    - `limit` (integer, optional, default: 10): Maximum number of results to return (1-100)
+    - `framework` (string, optional): Framework for code snippets ("raw-svg", "unplugin-icons", "iconify-icon-webcomponent", "react", "vue", "svelte", "lit", "ember")
+    - `setId` (string, optional): Icon set ID to search within
+  - *Example*:
+    ```json
+    {
+      "query": "home",
+      "limit": 5,
+      "framework": "react"
+    }
+    ```
+  - *Example output*: Returns matching icons with code snippets for the specified framework
+
+- `get-icon-snippet`: Generates implementation code for a specific icon in your chosen framework.
+  - *Parameters*:
+    - `iconSet` (string, required): The icon set ID (e.g., "mdi", "lucide")
+    - `iconName` (string, required): The name of the icon within the set
+    - `framework` (string, required): The target framework ("raw-svg", "unplugin-icons", "iconify-icon-webcomponent", "react", "vue", "svelte", "lit", "ember")
+  - *Example*:
+    ```json
+    {
+      "iconSet": "mdi",
+      "iconName": "home",
+      "framework": "react"
+    }
+    ```
+  - *Example output*:
+    ```jsx
+    // Assuming you use @iconify/react
+    // import { Icon } from '@iconify/react';
+    // <Icon icon="mdi:home" />
+    ```
+
+## Available Resources
+
+The server also provides access to the following resources:
+
+- **Icon set details**: Access detailed information about any icon set using URI templates like `iconify://collection/{setId}`
+  - *Example*: `iconify://collection/material-symbols`
+
+- **Individual icons**: Retrieve SVG files for individual icons with URIs like `iconify://icon/{setId}/{iconName}.svg`
+  - *Example*: `iconify://icon/mdi/home.svg`
+
+- **List of available icon sets**: Get a comprehensive list at `iconify://collections`
+
+- **Usage guidance**: Access usage instructions and best practices at `iconify://usage-guide`
+
+> TIP: Use the `get-collection` tool to explore available icon sets, then search for specific icons with `search-icons`, or get integration code with `get-icon-snippet`.
+
 ## Getting Started
-
-### Installation
-
-```bash
-# Clone this repository
-git clone https://github.com/yourusername/iconify-mcp
-cd iconify-mcp
-
-# Install dependencies
-bun install
-
-# Build the project
-bun run build
-```
 
 ### Usage with Claude Desktop
 
@@ -44,7 +104,7 @@ bun run build
 
    Open your Claude Desktop configuration file:
 
-   **macOS/Linux**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
+   **macOS/Linux**: `~/Library/Application Support/Claude/claude_desktop_config.json`   \
    **Windows**: `%AppData%\Claude\claude_desktop_config.json`
 
    Add this server to your configuration:
@@ -53,8 +113,8 @@ bun run build
    {
      "mcpServers": {
        "iconify": {
-         "command": "node",
-         "args": ["path/to/iconify-mcp/build/index.js"]
+         "command": "npx",
+         "args": ["-y", "iconify-mcp@latest"]
        }
      }
    }
